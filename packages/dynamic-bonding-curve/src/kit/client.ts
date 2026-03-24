@@ -1,9 +1,11 @@
 import { type Commitment, Connection } from '@solana/web3.js'
+import { createSolanaRpc, type Rpc, type SolanaRpcApi } from '@solana/kit'
 import { DynamicBondingCurveClient } from '../client'
 import { DynamicBondingCurveKitCreatorService } from './creator'
 import { DynamicBondingCurveKitMigrationService } from './migration'
 import { DynamicBondingCurveKitPartnerService } from './partner'
 import { DynamicBondingCurveKitPoolService } from './pool'
+import { DynamicBondingCurveKitStateService } from './state'
 import type {
     DynamicBondingCurveKitCreatorClient,
     DynamicBondingCurveKitMigrationClient,
@@ -21,9 +23,11 @@ export class DynamicBondingCurveKitClient {
     public readonly partner: DynamicBondingCurveKitPartnerClient
     public readonly creator: DynamicBondingCurveKitCreatorClient
     public readonly migration: DynamicBondingCurveKitMigrationClient
+    public readonly state: DynamicBondingCurveKitStateService
 
     private constructor(
-        legacyClient: DynamicBondingCurveLegacyTransactionClient
+        legacyClient: DynamicBondingCurveLegacyTransactionClient,
+        rpc: Rpc<SolanaRpcApi>
     ) {
         this.pool = new DynamicBondingCurveKitPoolService(legacyClient.pool)
         this.partner = new DynamicBondingCurveKitPartnerService(
@@ -35,12 +39,15 @@ export class DynamicBondingCurveKitClient {
         this.migration = new DynamicBondingCurveKitMigrationService(
             legacyClient.migration
         )
+        this.state = new DynamicBondingCurveKitStateService(rpc)
     }
 
     static fromLegacyClient(
-        legacyClient: DynamicBondingCurveLegacyTransactionClient
+        legacyClient: DynamicBondingCurveLegacyTransactionClient,
+        rpcUrl: string
     ): DynamicBondingCurveKitClient {
-        return new DynamicBondingCurveKitClient(legacyClient)
+        const rpc = createSolanaRpc(rpcUrl)
+        return new DynamicBondingCurveKitClient(legacyClient, rpc)
     }
 
     static fromRpcUrl(
@@ -51,7 +58,8 @@ export class DynamicBondingCurveKitClient {
             new Connection(rpcUrl, commitment),
             commitment
         )
+        const rpc = createSolanaRpc(rpcUrl)
 
-        return DynamicBondingCurveKitClient.fromLegacyClient(legacyClient)
+        return new DynamicBondingCurveKitClient(legacyClient, rpc)
     }
 }
