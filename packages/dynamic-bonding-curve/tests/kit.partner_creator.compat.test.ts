@@ -33,10 +33,7 @@ import { fundSol, LOCALNET_RPC_URL } from './utils/common'
 
 const connection = new Connection(LOCALNET_RPC_URL, 'confirmed')
 const legacyClient = DynamicBondingCurveClient.create(connection, 'confirmed')
-const kitClient = DynamicBondingCurveKitClient.fromLegacyClient(
-    legacyClient,
-    LOCALNET_RPC_URL
-)
+const kitClient = DynamicBondingCurveKitClient.fromRpcUrl(LOCALNET_RPC_URL)
 
 const curveConfig = buildCurveWithCustomSqrtPrices({
     token: {

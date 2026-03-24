@@ -1,7 +1,4 @@
-import {
-    fromLegacyKeypair,
-    fromLegacyTransactionInstruction,
-} from '@solana/compat'
+import { fromLegacyKeypair } from '@solana/compat'
 import {
     type Address,
     createSignerFromKeyPair,
@@ -9,36 +6,8 @@ import {
     type KeyPairSigner,
     type TransactionSigner,
 } from '@solana/kit'
-import { Keypair, PublicKey, Transaction } from '@solana/web3.js'
-import type { KitAddressOrSignerInput, KitTransactionPlan } from './types'
-
-export function toLegacyPublicKey(
-    value: KitAddressOrSignerInput | PublicKey
-): PublicKey {
-    if (value instanceof PublicKey) {
-        return value
-    }
-
-    if (isKitTransactionSigner(value)) {
-        return new PublicKey(value.address)
-    }
-
-    return new PublicKey(value.toString())
-}
-
-export function toLegacyOptionalPublicKey(
-    value: KitAddressOrSignerInput | PublicKey | null | undefined
-): PublicKey | null | undefined {
-    if (value === null) {
-        return null
-    }
-
-    if (value === undefined) {
-        return undefined
-    }
-
-    return toLegacyPublicKey(value)
-}
+import { Keypair } from '@solana/web3.js'
+import type { KitAddressOrSignerInput } from './types'
 
 export function collectKitTransactionSigners(
     ...values: readonly unknown[]
@@ -52,18 +21,10 @@ export function collectKitTransactionSigners(
     return [...uniqueSigners.values()]
 }
 
-export function createKitTransactionPlan(
-    transaction: Transaction,
-    signers: readonly TransactionSigner[] = []
-): KitTransactionPlan {
-    return {
-        instructions: transaction.instructions.map(
-            fromLegacyTransactionInstruction
-        ),
-        signers: collectKitTransactionSigners(signers),
-    }
-}
-
+/**
+ * Convert a legacy Keypair to a Kit KeyPairSigner.
+ * Retained for test compatibility — tests create Keypairs and need Kit signers.
+ */
 export async function createKitSignerFromLegacyKeypair(
     keypair: Keypair
 ): Promise<KeyPairSigner> {
@@ -90,7 +51,9 @@ function collectKitTransactionSignersFromValue(
     }
 }
 
-function isKitTransactionSigner(value: unknown): value is TransactionSigner {
+export function isKitTransactionSigner(
+    value: unknown
+): value is TransactionSigner {
     return (
         value != null &&
         typeof value === 'object' &&
@@ -102,4 +65,70 @@ function isKitTransactionSigner(value: unknown): value is TransactionSigner {
             }
         )
     )
+}
+
+export function toAddress(value: KitAddressOrSignerInput): Address {
+    if (isKitTransactionSigner(value)) {
+        return value.address
+    }
+    return value as Address
+}
+
+export function toOptionalAddress(
+    value: KitAddressOrSignerInput | null | undefined
+): Address | undefined {
+    if (value == null) {
+        return undefined
+    }
+    return toAddress(value)
+}
+
+export function toSigner(value: KitAddressOrSignerInput): TransactionSigner {
+    if (isKitTransactionSigner(value)) {
+        return value
+    }
+    throw new Error(
+        `Expected a TransactionSigner but received an address: ${value}`
+    )
+}
+
+function isBN(value: unknown): value is { toString(): string } {
+    return (
+        value != null &&
+        typeof value === 'object' &&
+        'toNumber' in value &&
+        'toArrayLike' in value &&
+        typeof (value as Record<string, unknown>).toString === 'function'
+    )
+}
+
+/**
+ * Recursively convert BN instances to bigint throughout an object tree.
+ * Handles arrays, plain objects, and Option/Nullable wrappers.
+ * Leaves non-BN primitives, Uint8Arrays, and other values unchanged.
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function convertBNFields(value: any): any {
+    if (isBN(value)) {
+        return BigInt(value.toString())
+    }
+    if (
+        value != null &&
+        typeof value === 'object' &&
+        typeof value.byteLength === 'number'
+    ) {
+        // Uint8Array or other typed arrays — return as-is
+        return value
+    }
+    if (Array.isArray(value)) {
+        return value.map(convertBNFields)
+    }
+    if (value != null && typeof value === 'object') {
+        const result: Record<string, unknown> = {}
+        for (const [k, v] of Object.entries(value)) {
+            result[k] = convertBNFields(v)
+        }
+        return result
+    }
+    return value
 }

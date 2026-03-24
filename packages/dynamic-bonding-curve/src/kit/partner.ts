@@ -1,18 +1,32 @@
-import type {
-    ClaimTradingFee2Params,
-    ClaimTradingFeeParams,
-    CreateConfigParams,
-    CreatePartnerMetadataParams,
-    PartnerWithdrawSurplusParams,
-    WithdrawMigrationFeeParams,
-} from '../types'
-import type { PartnerService } from '../services'
+import {
+    type Address,
+    type Instruction,
+    type Rpc,
+    type SolanaRpcApi,
+    createNoopSigner,
+} from '@solana/kit'
 import {
     collectKitTransactionSigners,
-    createKitTransactionPlan,
-    toLegacyOptionalPublicKey,
-    toLegacyPublicKey,
+    convertBNFields,
+    toAddress,
+    toOptionalAddress,
+    toSigner,
 } from './helpers'
+import { DynamicBondingCurveKitStateService } from './state'
+import { DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS } from '../generated/programs'
+import { getCreateConfigInstructionAsync } from '../generated/instructions/createConfig'
+import { getCreatePartnerMetadataInstructionAsync } from '../generated/instructions/createPartnerMetadata'
+import { getClaimTradingFeeInstructionAsync } from '../generated/instructions/claimTradingFee'
+import { getPartnerWithdrawSurplusInstructionAsync } from '../generated/instructions/partnerWithdrawSurplus'
+import { getWithdrawMigrationFeeInstructionAsync } from '../generated/instructions/withdrawMigrationFee'
+import { getClaimPartnerPoolCreationFeeInstructionAsync } from '../generated/instructions/claimPartnerPoolCreationFee'
+import {
+    createAssociatedTokenAccountIdempotentInstruction,
+    getTokenProgramAddress,
+    NATIVE_MINT_ADDRESS,
+    unwrapSolInstruction,
+} from './token'
+import { findAssociatedTokenPda } from '@solana-program/token'
 import type {
     KitClaimPartnerPoolCreationFeeParams,
     KitClaimTradingFee2Params,
@@ -25,121 +39,459 @@ import type {
 } from './types'
 
 export class DynamicBondingCurveKitPartnerService {
-    constructor(private readonly partnerService: PartnerService) {}
+    private readonly state: DynamicBondingCurveKitStateService
+
+    constructor(rpc: Rpc<SolanaRpcApi>) {
+        this.state = new DynamicBondingCurveKitStateService(rpc)
+    }
 
     async createConfig(
         params: KitCreateConfigParams
     ): Promise<KitTransactionPlan> {
-        const transaction = await this.partnerService.createConfig({
-            ...params,
-            config: toLegacyPublicKey(params.config),
-            feeClaimer: toLegacyPublicKey(params.feeClaimer),
-            leftoverReceiver: toLegacyPublicKey(params.leftoverReceiver),
-            quoteMint: toLegacyPublicKey(params.quoteMint),
-            payer: toLegacyPublicKey(params.payer),
-        } satisfies CreateConfigParams)
+        const {
+            config,
+            feeClaimer,
+            leftoverReceiver,
+            quoteMint,
+            payer,
+            ...configParam
+        } = params
 
-        return createKitTransactionPlan(
-            transaction,
-            collectKitTransactionSigners(params.config, params.payer)
-        )
+        const configSigner = toSigner(config)
+        const payerSigner = toSigner(payer)
+
+        const ix = await getCreateConfigInstructionAsync({
+            config: configSigner,
+            feeClaimer: toAddress(feeClaimer),
+            leftoverReceiver: toAddress(leftoverReceiver),
+            quoteMint: toAddress(quoteMint),
+            payer: payerSigner,
+            program: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+            configParameters: convertBNFields(configParam),
+        })
+
+        return {
+            instructions: [ix],
+            signers: collectKitTransactionSigners(configSigner, payerSigner),
+        }
     }
 
     async createPartnerMetadata(
         params: KitCreatePartnerMetadataParams
     ): Promise<KitTransactionPlan> {
-        const transaction = await this.partnerService.createPartnerMetadata({
-            ...params,
-            feeClaimer: toLegacyPublicKey(params.feeClaimer),
-            payer: toLegacyPublicKey(params.payer),
-        } satisfies CreatePartnerMetadataParams)
+        const { name, website, logo, feeClaimer, payer } = params
 
-        return createKitTransactionPlan(
-            transaction,
-            collectKitTransactionSigners(params.feeClaimer, params.payer)
-        )
+        const feeClaimerSigner = toSigner(feeClaimer)
+        const payerSigner = toSigner(payer)
+
+        const ix = await getCreatePartnerMetadataInstructionAsync({
+            payer: payerSigner,
+            feeClaimer: feeClaimerSigner,
+            program: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+            padding: new Uint8Array(96),
+            name,
+            website,
+            logo,
+        })
+
+        return {
+            instructions: [ix],
+            signers: collectKitTransactionSigners(
+                feeClaimerSigner,
+                payerSigner
+            ),
+        }
     }
 
     async claimPartnerTradingFee(
         params: KitClaimTradingFeeParams
     ): Promise<KitTransactionPlan> {
-        const transaction = await this.partnerService.claimPartnerTradingFee({
-            ...params,
-            feeClaimer: toLegacyPublicKey(params.feeClaimer),
-            payer: toLegacyPublicKey(params.payer),
-            pool: toLegacyPublicKey(params.pool),
-            receiver: toLegacyOptionalPublicKey(params.receiver),
-            tempWSolAcc: toLegacyOptionalPublicKey(params.tempWSolAcc),
-        } satisfies ClaimTradingFeeParams)
+        const {
+            feeClaimer,
+            payer,
+            pool,
+            maxBaseAmount,
+            maxQuoteAmount,
+            receiver,
+            tempWSolAcc,
+        } = params
 
-        return createKitTransactionPlan(
-            transaction,
-            collectKitTransactionSigners(
-                params.feeClaimer,
-                params.payer,
-                params.tempWSolAcc
-            )
+        const poolAddress = toAddress(pool)
+        const feeClaimerSigner = toSigner(feeClaimer)
+        const payerAddress = toAddress(payer)
+        const feeClaimerAddress = feeClaimerSigner.address
+
+        const poolAccount = await this.state.getPool(poolAddress)
+        const poolState = poolAccount.data
+
+        const configAccount = await this.state.getPoolConfig(poolState.config)
+        const configState = configAccount.data
+
+        const tokenBaseProgram = getTokenProgramAddress(configState.tokenType)
+        const tokenQuoteProgram = getTokenProgramAddress(
+            configState.quoteTokenFlag
         )
+
+        const isSOLQuoteMint = configState.quoteMint === NATIVE_MINT_ADDRESS
+
+        const preInstructions: Instruction[] = []
+        const postInstructions: Instruction[] = []
+
+        const receiverAddress = toOptionalAddress(receiver)
+        const feeReceiver = receiverAddress ?? feeClaimerAddress
+
+        let tokenBaseAccount: Address
+        let tokenQuoteAccount: Address
+
+        if (isSOLQuoteMint) {
+            const tempWSolAddress =
+                receiverAddress && receiverAddress !== feeClaimerAddress
+                    ? toAddress(tempWSolAcc!)
+                    : feeClaimerAddress
+
+            ;[tokenBaseAccount] = await findAssociatedTokenPda({
+                owner: feeReceiver,
+                mint: poolState.baseMint,
+                tokenProgram: tokenBaseProgram,
+            })
+            ;[tokenQuoteAccount] = await findAssociatedTokenPda({
+                owner: tempWSolAddress,
+                mint: configState.quoteMint,
+                tokenProgram: tokenQuoteProgram,
+            })
+
+            const createBaseAta =
+                await createAssociatedTokenAccountIdempotentInstruction(
+                    payerAddress,
+                    feeReceiver,
+                    poolState.baseMint,
+                    tokenBaseProgram
+                )
+            preInstructions.push(createBaseAta.instruction)
+
+            const createQuoteAta =
+                await createAssociatedTokenAccountIdempotentInstruction(
+                    payerAddress,
+                    tempWSolAddress,
+                    configState.quoteMint,
+                    tokenQuoteProgram
+                )
+            preInstructions.push(createQuoteAta.instruction)
+
+            postInstructions.push(
+                await unwrapSolInstruction(tempWSolAddress, feeReceiver)
+            )
+        } else {
+            const [baseResult, quoteResult] = await Promise.all([
+                createAssociatedTokenAccountIdempotentInstruction(
+                    payerAddress,
+                    feeReceiver,
+                    poolState.baseMint,
+                    tokenBaseProgram
+                ),
+                createAssociatedTokenAccountIdempotentInstruction(
+                    payerAddress,
+                    feeReceiver,
+                    configState.quoteMint,
+                    tokenQuoteProgram
+                ),
+            ])
+
+            tokenBaseAccount = baseResult.ata
+            tokenQuoteAccount = quoteResult.ata
+            preInstructions.push(
+                baseResult.instruction,
+                quoteResult.instruction
+            )
+        }
+
+        const claimIx = await getClaimTradingFeeInstructionAsync({
+            config: poolState.config,
+            pool: poolAddress,
+            tokenAAccount: tokenBaseAccount,
+            tokenBAccount: tokenQuoteAccount,
+            baseVault: poolState.baseVault,
+            quoteVault: poolState.quoteVault,
+            baseMint: poolState.baseMint,
+            quoteMint: configState.quoteMint,
+            feeClaimer: feeClaimerSigner,
+            tokenBaseProgram,
+            tokenQuoteProgram,
+            program: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+            maxAmountA: BigInt(maxBaseAmount.toString()),
+            maxAmountB: BigInt(maxQuoteAmount.toString()),
+        })
+
+        return {
+            instructions: [...preInstructions, claimIx, ...postInstructions],
+            signers: collectKitTransactionSigners(
+                feeClaimerSigner,
+                params.payer,
+                tempWSolAcc
+            ),
+        }
     }
 
     async claimPartnerTradingFee2(
         params: KitClaimTradingFee2Params
     ): Promise<KitTransactionPlan> {
-        const transaction = await this.partnerService.claimPartnerTradingFee2({
-            ...params,
-            feeClaimer: toLegacyPublicKey(params.feeClaimer),
-            payer: toLegacyPublicKey(params.payer),
-            pool: toLegacyPublicKey(params.pool),
-            receiver: toLegacyPublicKey(params.receiver),
-        } satisfies ClaimTradingFee2Params)
+        const {
+            feeClaimer,
+            payer,
+            pool,
+            maxBaseAmount,
+            maxQuoteAmount,
+            receiver,
+        } = params
 
-        return createKitTransactionPlan(
-            transaction,
-            collectKitTransactionSigners(params.feeClaimer, params.payer)
+        const poolAddress = toAddress(pool)
+        const feeClaimerSigner = toSigner(feeClaimer)
+        const payerAddress = toAddress(payer)
+        const feeClaimerAddress = feeClaimerSigner.address
+        const receiverAddress = toAddress(receiver)
+
+        const poolAccount = await this.state.getPool(poolAddress)
+        const poolState = poolAccount.data
+
+        const configAccount = await this.state.getPoolConfig(poolState.config)
+        const configState = configAccount.data
+
+        const tokenBaseProgram = getTokenProgramAddress(configState.tokenType)
+        const tokenQuoteProgram = getTokenProgramAddress(
+            configState.quoteTokenFlag
         )
+
+        const isSOLQuoteMint = configState.quoteMint === NATIVE_MINT_ADDRESS
+
+        const preInstructions: Instruction[] = []
+        const postInstructions: Instruction[] = []
+
+        let tokenBaseAccount: Address
+        let tokenQuoteAccount: Address
+
+        if (isSOLQuoteMint) {
+            ;[tokenBaseAccount] = await findAssociatedTokenPda({
+                owner: receiverAddress,
+                mint: poolState.baseMint,
+                tokenProgram: tokenBaseProgram,
+            })
+            ;[tokenQuoteAccount] = await findAssociatedTokenPda({
+                owner: feeClaimerAddress,
+                mint: configState.quoteMint,
+                tokenProgram: tokenQuoteProgram,
+            })
+
+            const createBaseAta =
+                await createAssociatedTokenAccountIdempotentInstruction(
+                    payerAddress,
+                    receiverAddress,
+                    poolState.baseMint,
+                    tokenBaseProgram
+                )
+            preInstructions.push(createBaseAta.instruction)
+
+            const createQuoteAta =
+                await createAssociatedTokenAccountIdempotentInstruction(
+                    payerAddress,
+                    feeClaimerAddress,
+                    configState.quoteMint,
+                    tokenQuoteProgram
+                )
+            preInstructions.push(createQuoteAta.instruction)
+
+            postInstructions.push(
+                await unwrapSolInstruction(feeClaimerAddress, receiverAddress)
+            )
+        } else {
+            const [baseResult, quoteResult] = await Promise.all([
+                createAssociatedTokenAccountIdempotentInstruction(
+                    payerAddress,
+                    receiverAddress,
+                    poolState.baseMint,
+                    tokenBaseProgram
+                ),
+                createAssociatedTokenAccountIdempotentInstruction(
+                    payerAddress,
+                    receiverAddress,
+                    configState.quoteMint,
+                    tokenQuoteProgram
+                ),
+            ])
+
+            tokenBaseAccount = baseResult.ata
+            tokenQuoteAccount = quoteResult.ata
+            preInstructions.push(
+                baseResult.instruction,
+                quoteResult.instruction
+            )
+        }
+
+        const claimIx = await getClaimTradingFeeInstructionAsync({
+            config: poolState.config,
+            pool: poolAddress,
+            tokenAAccount: tokenBaseAccount,
+            tokenBAccount: tokenQuoteAccount,
+            baseVault: poolState.baseVault,
+            quoteVault: poolState.quoteVault,
+            baseMint: poolState.baseMint,
+            quoteMint: configState.quoteMint,
+            feeClaimer: feeClaimerSigner,
+            tokenBaseProgram,
+            tokenQuoteProgram,
+            program: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+            maxAmountA: BigInt(maxBaseAmount.toString()),
+            maxAmountB: BigInt(maxQuoteAmount.toString()),
+        })
+
+        return {
+            instructions: [...preInstructions, claimIx, ...postInstructions],
+            signers: collectKitTransactionSigners(
+                feeClaimerSigner,
+                params.payer
+            ),
+        }
     }
 
     async partnerWithdrawSurplus(
         params: KitPartnerWithdrawSurplusParams
     ): Promise<KitTransactionPlan> {
-        const transaction = await this.partnerService.partnerWithdrawSurplus({
-            ...params,
-            feeClaimer: toLegacyPublicKey(params.feeClaimer),
-            virtualPool: toLegacyPublicKey(params.virtualPool),
-        } satisfies PartnerWithdrawSurplusParams)
+        const { virtualPool, feeClaimer } = params
 
-        return createKitTransactionPlan(
-            transaction,
-            collectKitTransactionSigners(params.feeClaimer)
+        const virtualPoolAddress = toAddress(virtualPool)
+        const feeClaimerSigner = toSigner(feeClaimer)
+        const feeClaimerAddress = feeClaimerSigner.address
+
+        const poolAccount = await this.state.getPool(virtualPoolAddress)
+        const poolState = poolAccount.data
+
+        const configAccount = await this.state.getPoolConfig(poolState.config)
+        const configState = configAccount.data
+
+        const tokenQuoteProgram = getTokenProgramAddress(
+            configState.quoteTokenFlag
         )
+
+        const preInstructions: Instruction[] = []
+        const postInstructions: Instruction[] = []
+
+        const quoteAtaResult =
+            await createAssociatedTokenAccountIdempotentInstruction(
+                feeClaimerAddress,
+                feeClaimerAddress,
+                configState.quoteMint,
+                tokenQuoteProgram
+            )
+        preInstructions.push(quoteAtaResult.instruction)
+
+        if (configState.quoteMint === NATIVE_MINT_ADDRESS) {
+            postInstructions.push(
+                await unwrapSolInstruction(feeClaimerAddress, feeClaimerAddress)
+            )
+        }
+
+        const ix = await getPartnerWithdrawSurplusInstructionAsync({
+            config: poolState.config,
+            virtualPool: virtualPoolAddress,
+            tokenQuoteAccount: quoteAtaResult.ata,
+            quoteVault: poolState.quoteVault,
+            quoteMint: configState.quoteMint,
+            feeClaimer: feeClaimerSigner,
+            tokenQuoteProgram,
+            program: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+        })
+
+        return {
+            instructions: [...preInstructions, ix, ...postInstructions],
+            signers: collectKitTransactionSigners(feeClaimerSigner),
+        }
     }
 
     async partnerWithdrawMigrationFee(
         params: KitWithdrawMigrationFeeParams
     ): Promise<KitTransactionPlan> {
-        const transaction =
-            await this.partnerService.partnerWithdrawMigrationFee({
-                ...params,
-                virtualPool: toLegacyPublicKey(params.virtualPool),
-                sender: toLegacyPublicKey(params.sender),
-            } satisfies WithdrawMigrationFeeParams)
+        const { virtualPool, sender } = params
 
-        return createKitTransactionPlan(
-            transaction,
-            collectKitTransactionSigners(params.sender)
+        const virtualPoolAddress = toAddress(virtualPool)
+        const senderSigner = toSigner(sender)
+        const senderAddress = senderSigner.address
+
+        const poolAccount = await this.state.getPool(virtualPoolAddress)
+        const poolState = poolAccount.data
+
+        const configAccount = await this.state.getPoolConfig(poolState.config)
+        const configState = configAccount.data
+
+        const tokenQuoteProgram = getTokenProgramAddress(
+            configState.quoteTokenFlag
         )
+
+        const preInstructions: Instruction[] = []
+        const postInstructions: Instruction[] = []
+
+        const quoteAtaResult =
+            await createAssociatedTokenAccountIdempotentInstruction(
+                senderAddress,
+                senderAddress,
+                configState.quoteMint,
+                tokenQuoteProgram
+            )
+        preInstructions.push(quoteAtaResult.instruction)
+
+        if (configState.quoteMint === NATIVE_MINT_ADDRESS) {
+            postInstructions.push(
+                await unwrapSolInstruction(senderAddress, senderAddress)
+            )
+        }
+
+        const ix = await getWithdrawMigrationFeeInstructionAsync({
+            config: poolState.config,
+            virtualPool: virtualPoolAddress,
+            tokenQuoteAccount: quoteAtaResult.ata,
+            quoteVault: poolState.quoteVault,
+            quoteMint: configState.quoteMint,
+            sender: senderSigner,
+            tokenQuoteProgram,
+            program: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+            flag: 0, // 0 = partner, 1 = creator
+        })
+
+        return {
+            instructions: [...preInstructions, ix, ...postInstructions],
+            signers: collectKitTransactionSigners(senderSigner),
+        }
     }
 
     async claimPartnerPoolCreationFee(
         params: KitClaimPartnerPoolCreationFeeParams
     ): Promise<KitTransactionPlan> {
-        const transaction =
-            await this.partnerService.claimPartnerPoolCreationFee({
-                ...params,
-                virtualPool: toLegacyPublicKey(params.virtualPool),
-                feeReceiver: toLegacyPublicKey(params.feeReceiver),
-            })
+        const { virtualPool, feeReceiver } = params
 
-        return createKitTransactionPlan(transaction)
+        const virtualPoolAddress = toAddress(virtualPool)
+        const feeReceiverAddress = toAddress(feeReceiver)
+
+        const poolAccount = await this.state.getPool(virtualPoolAddress)
+        const poolState = poolAccount.data
+
+        const configAccount = await this.state.getPoolConfig(poolState.config)
+        const configState = configAccount.data
+
+        // feeClaimer is read from on-chain config state. The caller is
+        // responsible for signing with this key externally, so we create a
+        // noop signer that is not included in the returned signers array
+        // (matching legacy behaviour).
+        const feeClaimerPlaceholder = createNoopSigner(configState.feeClaimer)
+
+        const ix = await getClaimPartnerPoolCreationFeeInstructionAsync({
+            config: poolState.config,
+            pool: virtualPoolAddress,
+            feeClaimer: feeClaimerPlaceholder,
+            feeReceiver: feeReceiverAddress,
+            program: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+        })
+
+        return {
+            instructions: [ix],
+            signers: [],
+        }
     }
 }
