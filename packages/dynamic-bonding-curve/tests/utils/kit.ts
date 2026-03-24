@@ -94,6 +94,26 @@ export async function expectKitPlanToCompile(
     expect(compileTransactionMessage(message)).toBeDefined()
 }
 
+/**
+ * Strip signer metadata from account metas so Codama-built instructions
+ * (which carry TransactionSigner objects) can be compared with
+ * legacy-converted instructions (which only have address + role).
+ */
+function stripSignerMeta(
+    instructions: KitTransactionPlan['instructions']
+): unknown[] {
+    return instructions.map((ix) => ({
+        programAddress: ix.programAddress,
+        data: ix.data,
+        accounts: (ix.accounts ?? []).map(
+            (acc: { address: string; role: number }) => ({
+                address: acc.address,
+                role: acc.role,
+            })
+        ),
+    }))
+}
+
 export async function expectKitPlanToMatchLegacyTransaction(
     connection: Connection,
     legacyTransaction: Transaction,
@@ -101,8 +121,11 @@ export async function expectKitPlanToMatchLegacyTransaction(
     feePayer: PublicKey,
     expectedSigners: readonly TransactionSigner[] = []
 ): Promise<void> {
-    expect(plan.instructions).toEqual(
-        legacyTransaction.instructions.map(fromLegacyTransactionInstruction)
+    const legacyInstructions = legacyTransaction.instructions.map(
+        fromLegacyTransactionInstruction
+    )
+    expect(stripSignerMeta(plan.instructions)).toEqual(
+        stripSignerMeta(legacyInstructions)
     )
     expect(plan.signers.map((signer) => signer.address).sort()).toEqual(
         expectedSigners.map((signer) => signer.address).sort()
