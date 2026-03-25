@@ -1,5 +1,5 @@
 import type { Address, Instruction, Rpc, SolanaRpcApi } from '@solana/kit'
-import { TokenType } from '../../types'
+import { TokenType } from '../enums'
 import { getCreateVirtualPoolMetadataInstructionAsync } from '../generated/instructions/createVirtualPoolMetadata'
 import { getClaimCreatorTradingFeeInstructionAsync } from '../generated/instructions/claimCreatorTradingFee'
 import { getCreatorWithdrawSurplusInstructionAsync } from '../generated/instructions/creatorWithdrawSurplus'

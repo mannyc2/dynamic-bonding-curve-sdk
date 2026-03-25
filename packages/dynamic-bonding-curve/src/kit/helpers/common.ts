@@ -1,12 +1,8 @@
-import { fromLegacyKeypair } from '@solana/compat'
 import {
     type Address,
-    createSignerFromKeyPair,
     isTransactionSigner,
-    type KeyPairSigner,
     type TransactionSigner,
 } from '@solana/kit'
-import { Keypair } from '@solana/web3.js'
 import type { KitAddressOrSignerInput } from '../types'
 
 export function collectKitTransactionSigners(
@@ -19,16 +15,6 @@ export function collectKitTransactionSigners(
     }
 
     return [...uniqueSigners.values()]
-}
-
-/**
- * Convert a legacy Keypair to a Kit KeyPairSigner.
- * Retained for test compatibility — tests create Keypairs and need Kit signers.
- */
-export async function createKitSignerFromLegacyKeypair(
-    keypair: Keypair
-): Promise<KeyPairSigner> {
-    return createSignerFromKeyPair(await fromLegacyKeypair(keypair))
 }
 
 function collectKitTransactionSignersFromValue(

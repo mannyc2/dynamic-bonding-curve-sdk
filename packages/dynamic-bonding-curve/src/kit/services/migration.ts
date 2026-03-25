@@ -6,7 +6,7 @@ import {
     fetchEncodedAccount,
     generateKeyPairSigner,
 } from '@solana/kit'
-import { TokenType } from '../../types'
+import { TokenType } from '../enums'
 import { findAssociatedTokenPda } from '@solana-program/token'
 import { getCreateLockerInstructionAsync } from '../generated/instructions/createLocker'
 import { getWithdrawLeftoverInstructionAsync } from '../generated/instructions/withdrawLeftover'

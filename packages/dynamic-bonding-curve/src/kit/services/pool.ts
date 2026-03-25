@@ -1,13 +1,12 @@
 import type { Address, Instruction, Rpc, SolanaRpcApi } from '@solana/kit'
 import BN from 'bn.js'
-import { isRateLimiterApplied } from '../../math'
 import {
     ActivationType,
     BaseFeeMode,
     SwapMode,
     TokenType,
     TradeDirection,
-} from '../../types'
+} from '../enums'
 import {
     getCreateConfigInstructionAsync,
     type CreateConfigInstructionDataArgs,
@@ -29,6 +28,7 @@ import {
     findTokenVaultPda,
     getTokenProgramAddress,
     getTokenTypeForMint,
+    isRateLimiterApplied,
     NATIVE_MINT_ADDRESS,
     toAddress,
     toOptionalAddress,

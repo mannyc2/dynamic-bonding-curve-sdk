@@ -19,7 +19,7 @@ import {
     TOKEN_2022_PROGRAM_ADDRESS,
     TOKEN_PROGRAM_ADDRESS,
 } from '../constants'
-import { TokenType } from '../../types'
+import { TokenType } from '../enums'
 
 export {
     ASSOCIATED_TOKEN_PROGRAM_ADDRESS,

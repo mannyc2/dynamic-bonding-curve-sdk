@@ -1,6 +1,6 @@
 import type BN from 'bn.js'
 import type { Address, Instruction, TransactionSigner } from '@solana/kit'
-import { SwapMode } from '../types'
+import { SwapMode } from './enums'
 import type {
     ClaimCreatorTradingFee2Params,
     ClaimCreatorTradingFeeParams,

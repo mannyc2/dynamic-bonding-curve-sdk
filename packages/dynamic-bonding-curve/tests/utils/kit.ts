@@ -1,4 +1,5 @@
 import {
+    fromLegacyKeypair,
     fromLegacyPublicKey,
     fromLegacyTransactionInstruction,
 } from '@solana/compat'
@@ -6,9 +7,11 @@ import {
     addSignersToTransactionMessage,
     appendTransactionMessageInstructions,
     compileTransactionMessage,
+    createSignerFromKeyPair,
     createSolanaRpc,
     createSolanaRpcSubscriptions,
     createTransactionMessage,
+    type KeyPairSigner,
     pipe,
     sendAndConfirmTransactionFactory,
     setTransactionMessageFeePayer,
@@ -18,12 +21,9 @@ import {
     type Blockhash,
     type TransactionSigner,
 } from '@solana/kit'
-import { Connection, PublicKey, Transaction } from '@solana/web3.js'
+import { Connection, Keypair, PublicKey, Transaction } from '@solana/web3.js'
 import { expect } from 'vitest'
-import {
-    createKitSignerFromLegacyKeypair,
-    isKitTransactionSigner,
-} from '../../src/kit/helpers'
+import { isKitTransactionSigner } from '../../src/kit/helpers'
 import type { KitTransactionPlan } from '../../src'
 import { LOCALNET_RPC_URL } from './common'
 
@@ -36,7 +36,15 @@ const sendAndConfirm = sendAndConfirmTransactionFactory({
     rpcSubscriptions: rpcSubscriptions as never,
 })
 
-export { createKitSignerFromLegacyKeypair }
+/**
+ * Convert a legacy Keypair to a Kit KeyPairSigner.
+ * Lives in test utils because it depends on @solana/web3.js and @solana/compat.
+ */
+export async function createKitSignerFromLegacyKeypair(
+    keypair: Keypair
+): Promise<KeyPairSigner> {
+    return createSignerFromKeyPair(await fromLegacyKeypair(keypair))
+}
 
 export async function executeKitPlan(
     plan: KitTransactionPlan,
