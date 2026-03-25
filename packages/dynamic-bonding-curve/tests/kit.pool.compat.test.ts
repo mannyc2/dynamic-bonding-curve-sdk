@@ -123,6 +123,7 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
 
         await Promise.all([
             fundSol(connection, partner.publicKey),
+            fundSol(connection, creator.publicKey),
             fundSol(connection, poolCreator.publicKey),
             fundSol(connection, user.publicKey),
         ])
@@ -273,9 +274,117 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
             connection,
             legacyCreateConfigAndPoolWithFirstBuy.createPoolWithFirstBuyTx,
             kitCreateConfigAndPoolWithFirstBuy.createPoolWithFirstBuyPlan,
-            poolCreator.publicKey,
+            partner.publicKey,
             [partnerSigner, poolCreatorSigner, withFirstBuyBaseMintSigner]
         )
+
+        await executeKitPlan(
+            kitCreateConfigAndPoolWithFirstBuy.createConfigPlan,
+            partnerSigner
+        )
+        await executeKitPlan(
+            kitCreateConfigAndPoolWithFirstBuy.createPoolWithFirstBuyPlan,
+            partnerSigner
+        )
+
+        const withFirstBuyPool = deriveDbcPoolAddress(
+            NATIVE_MINT,
+            withFirstBuyBaseMint.publicKey,
+            withFirstBuyConfig.publicKey
+        )
+        expect(
+            await legacyClient.state.getPool(withFirstBuyPool)
+        ).not.toBeNull()
+    })
+
+    test('createConfigAndPoolWithFirstBuy resolves the quote token program from the quote mint', async () => {
+        const config = Keypair.generate()
+        const baseMint = Keypair.generate()
+        const [configSigner, baseMintSigner] = await Promise.all([
+            createKitSignerFromLegacyKeypair(config),
+            createKitSignerFromLegacyKeypair(baseMint),
+        ])
+
+        const token2022CurveConfig = {
+            ...curveConfig,
+            tokenType: TokenType.Token2022,
+        }
+
+        const params = {
+            ...token2022CurveConfig,
+            config: config.publicKey,
+            feeClaimer: partner.publicKey,
+            leftoverReceiver: partner.publicKey,
+            payer: partner.publicKey,
+            quoteMint: NATIVE_MINT,
+            preCreatePoolParam: {
+                name: 'TOKEN2022',
+                symbol: 'T22',
+                uri: 'https://example.com/token2022-first-buy.json',
+                poolCreator: poolCreator.publicKey,
+                baseMint: baseMint.publicKey,
+            },
+            firstBuyParam: {
+                buyer: partner.publicKey,
+                receiver: partner.publicKey,
+                buyAmount: new BN(1_000_000_000),
+                minimumAmountOut: new BN(0),
+                referralTokenAccount: null as PublicKey | null,
+            },
+        }
+
+        const legacyResult =
+            await legacyClient.pool.createConfigAndPoolWithFirstBuy(params)
+        const kitResult = await kitClient.pool.createConfigAndPoolWithFirstBuy({
+            ...token2022CurveConfig,
+            config: configSigner,
+            feeClaimer: partner.publicKey.toBase58(),
+            leftoverReceiver: partner.publicKey.toBase58(),
+            payer: partnerSigner,
+            quoteMint: NATIVE_MINT.toBase58(),
+            preCreatePoolParam: {
+                name: 'TOKEN2022',
+                symbol: 'T22',
+                uri: 'https://example.com/token2022-first-buy.json',
+                poolCreator: poolCreatorSigner,
+                baseMint: baseMintSigner,
+            },
+            firstBuyParam: {
+                buyer: partnerSigner,
+                receiver: partner.publicKey.toBase58(),
+                buyAmount: new BN(1_000_000_000),
+                minimumAmountOut: new BN(0),
+                referralTokenAccount: null,
+            },
+        })
+
+        await expectKitPlanToMatchLegacyTransaction(
+            connection,
+            legacyResult.createConfigTx,
+            kitResult.createConfigPlan,
+            partner.publicKey,
+            [partnerSigner, configSigner]
+        )
+        await expectKitPlanToMatchLegacyTransaction(
+            connection,
+            legacyResult.createPoolWithFirstBuyTx,
+            kitResult.createPoolWithFirstBuyPlan,
+            partner.publicKey,
+            [partnerSigner, poolCreatorSigner, baseMintSigner]
+        )
+
+        await executeKitPlan(kitResult.createConfigPlan, partnerSigner)
+        await executeKitPlan(
+            kitResult.createPoolWithFirstBuyPlan,
+            partnerSigner
+        )
+
+        const pool = deriveDbcPoolAddress(
+            NATIVE_MINT,
+            baseMint.publicKey,
+            config.publicKey
+        )
+        expect(await legacyClient.state.getPool(pool)).not.toBeNull()
     })
 
     test('createPool builders stay compatible with legacy transactions', async () => {
@@ -286,9 +395,9 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
         const createPoolParams = {
             baseMint: baseMint.publicKey,
             config: config.publicKey,
-            name: 'TEST',
-            symbol: 'TEST',
-            uri: 'https://ipfs.io/ipfs/QmdcU6CRSNr6qYmyQAGjvFyZajEs9W1GH51rddCFw7S6p2',
+            name: 'T',
+            symbol: 'T',
+            uri: 'u',
             payer: poolCreator.publicKey,
             poolCreator: poolCreator.publicKey,
         }
@@ -364,6 +473,20 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
             ]
         )
 
+        await executeKitPlan(kitCreatePoolWithFirstBuy, poolCreatorSigner)
+
+        const createPoolWithFirstBuyPool = deriveDbcPoolAddress(
+            NATIVE_MINT,
+            createPoolWithFirstBuyBaseMint.publicKey,
+            config.publicKey
+        )
+        const createPoolWithFirstBuyPoolState =
+            await legacyClient.state.getPool(createPoolWithFirstBuyPool)
+        expect(createPoolWithFirstBuyPoolState).not.toBeNull()
+        expect(
+            createPoolWithFirstBuyPoolState!.quoteReserve.gt(new BN(0))
+        ).toBe(true)
+
         const partnerCreatorFirstBuyBaseMint = Keypair.generate()
         const partnerCreatorFirstBuyBaseMintSigner =
             await createKitSignerFromLegacyKeypair(
@@ -431,6 +554,23 @@ describe('Kit pool compatibility', { timeout: 60000 }, () => {
                 partnerCreatorFirstBuyBaseMintSigner,
             ]
         )
+
+        await executeKitPlan(
+            kitCreatePoolWithPartnerAndCreatorFirstBuy,
+            poolCreatorSigner
+        )
+
+        const partnerCreatorFirstBuyPool = deriveDbcPoolAddress(
+            NATIVE_MINT,
+            partnerCreatorFirstBuyBaseMint.publicKey,
+            config.publicKey
+        )
+        const partnerCreatorFirstBuyPoolState =
+            await legacyClient.state.getPool(partnerCreatorFirstBuyPool)
+        expect(partnerCreatorFirstBuyPoolState).not.toBeNull()
+        expect(
+            partnerCreatorFirstBuyPoolState!.quoteReserve.gt(new BN(0))
+        ).toBe(true)
     })
 
     test('swap builders stay compatible with legacy transactions', async () => {

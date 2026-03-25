@@ -1,8 +1,11 @@
 import {
     type Address,
     type Instruction,
+    type Rpc,
+    type SolanaRpcApi,
     type TransactionSigner,
     createNoopSigner,
+    fetchEncodedAccount,
 } from '@solana/kit'
 import { getTransferSolInstruction } from '@solana-program/system'
 import {
@@ -27,6 +30,24 @@ export function getTokenProgramAddress(tokenType: TokenType): Address {
     return tokenType === TokenType.SPL
         ? TOKEN_PROGRAM_ADDRESS
         : TOKEN_2022_PROGRAM_ADDRESS
+}
+
+export async function getTokenTypeForMint(
+    rpc: Rpc<SolanaRpcApi>,
+    mint: Address
+): Promise<TokenType> {
+    if (mint === NATIVE_MINT_ADDRESS) {
+        return TokenType.SPL
+    }
+
+    const account = await fetchEncodedAccount(rpc, mint)
+    if (!account.exists) {
+        throw new Error(`Mint account not found: ${mint}`)
+    }
+
+    return account.programAddress === TOKEN_PROGRAM_ADDRESS
+        ? TokenType.SPL
+        : TokenType.Token2022
 }
 
 /**

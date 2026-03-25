@@ -83,6 +83,15 @@ export function toOptionalAddress(
     return toAddress(value)
 }
 
+export function toAddressOrSigner(
+    value: KitAddressOrSignerInput
+): Address | TransactionSigner {
+    if (isKitTransactionSigner(value)) {
+        return value
+    }
+    return value as Address
+}
+
 export function toSigner(value: KitAddressOrSignerInput): TransactionSigner {
     if (isKitTransactionSigner(value)) {
         return value

@@ -8,14 +8,18 @@ import { getWithdrawMigrationFeeInstructionAsync } from '../generated/instructio
 import { DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS } from '../generated/programs'
 import { findMigrationMetadataPda } from '../generated/pdas'
 import { DynamicBondingCurveKitStateService } from './state'
-import { findAssociatedTokenPda } from '@solana-program/token'
 import {
     createAssociatedTokenAccountIdempotentInstruction,
     getTokenProgramAddress,
     NATIVE_MINT_ADDRESS,
     unwrapSolInstruction,
 } from './token'
-import { collectKitTransactionSigners, toAddress, toSigner } from './helpers'
+import {
+    collectKitTransactionSigners,
+    toAddress,
+    toAddressOrSigner,
+    toSigner,
+} from './helpers'
 import type {
     KitClaimCreatorTradingFee2Params,
     KitClaimCreatorTradingFeeParams,
@@ -61,7 +65,7 @@ export class DynamicBondingCurveKitCreatorService {
         params: KitClaimCreatorTradingFeeParams
     ): Promise<KitTransactionPlan> {
         const creatorSigner = toSigner(params.creator)
-        const payerAddress = toAddress(params.payer)
+        const payerInput = toAddressOrSigner(params.payer)
         const poolAddress = toAddress(params.pool) as Address
 
         const poolAccount = await this.state.getPool(poolAddress)
@@ -91,17 +95,18 @@ export class DynamicBondingCurveKitCreatorService {
         let tokenQuoteAccount: Address
 
         if (isSOLQuoteMint) {
-            const tempWSol =
+            const tempWSolOwner =
                 receiver && receiver !== creatorAddress
                     ? params.tempWSolAcc
-                        ? toAddress(params.tempWSolAcc)
-                        : creatorAddress
-                    : creatorAddress
+                        ? toAddressOrSigner(params.tempWSolAcc)
+                        : creatorSigner
+                    : creatorSigner
+            const tempWSolAddress = toAddress(tempWSolOwner)
             const feeReceiver = receiver ? receiver : creatorAddress
 
             const baseAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     feeReceiver,
                     poolState.baseMint,
                     tokenBaseProgram
@@ -111,22 +116,25 @@ export class DynamicBondingCurveKitCreatorService {
 
             const quoteAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
-                    tempWSol,
+                    payerInput,
+                    tempWSolAddress,
                     configState.quoteMint,
                     tokenQuoteProgram
                 )
             preInstructions.push(quoteAta.instruction)
             tokenQuoteAccount = quoteAta.ata
 
-            const unwrapIx = await unwrapSolInstruction(tempWSol, feeReceiver)
+            const unwrapIx = await unwrapSolInstruction(
+                tempWSolOwner,
+                feeReceiver
+            )
             postInstructions.push(unwrapIx)
         } else {
             const feeReceiver = receiver ? receiver : creatorAddress
 
             const baseAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     feeReceiver,
                     poolState.baseMint,
                     tokenBaseProgram
@@ -136,7 +144,7 @@ export class DynamicBondingCurveKitCreatorService {
 
             const quoteAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     feeReceiver,
                     configState.quoteMint,
                     tokenQuoteProgram
@@ -175,7 +183,7 @@ export class DynamicBondingCurveKitCreatorService {
         params: KitClaimCreatorTradingFee2Params
     ): Promise<KitTransactionPlan> {
         const creatorSigner = toSigner(params.creator)
-        const payerAddress = toAddress(params.payer)
+        const payerInput = toAddressOrSigner(params.payer)
         const poolAddress = toAddress(params.pool) as Address
         const receiverAddress = toAddress(params.receiver)
 
@@ -205,7 +213,7 @@ export class DynamicBondingCurveKitCreatorService {
         if (isSOLQuoteMint) {
             const baseAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     receiverAddress,
                     poolState.baseMint,
                     tokenBaseProgram
@@ -215,7 +223,7 @@ export class DynamicBondingCurveKitCreatorService {
 
             const quoteAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     creatorAddress,
                     configState.quoteMint,
                     tokenQuoteProgram
@@ -224,14 +232,14 @@ export class DynamicBondingCurveKitCreatorService {
             tokenQuoteAccount = quoteAta.ata
 
             const unwrapIx = await unwrapSolInstruction(
-                creatorAddress,
+                creatorSigner,
                 receiverAddress
             )
             postInstructions.push(unwrapIx)
         } else {
             const baseAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     receiverAddress,
                     poolState.baseMint,
                     tokenBaseProgram
@@ -241,7 +249,7 @@ export class DynamicBondingCurveKitCreatorService {
 
             const quoteAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     receiverAddress,
                     configState.quoteMint,
                     tokenQuoteProgram
@@ -293,7 +301,7 @@ export class DynamicBondingCurveKitCreatorService {
 
         const quoteAta =
             await createAssociatedTokenAccountIdempotentInstruction(
-                creatorAddress,
+                creatorSigner,
                 creatorAddress,
                 configState.quoteMint,
                 TOKEN_PROGRAM_ADDRESS
@@ -303,7 +311,7 @@ export class DynamicBondingCurveKitCreatorService {
         const isSOLQuoteMint = configState.quoteMint === NATIVE_MINT_ADDRESS
         if (isSOLQuoteMint) {
             const unwrapIx = await unwrapSolInstruction(
-                creatorAddress,
+                creatorSigner,
                 creatorAddress
             )
             postInstructions.push(unwrapIx)
@@ -388,7 +396,7 @@ export class DynamicBondingCurveKitCreatorService {
 
         const quoteAta =
             await createAssociatedTokenAccountIdempotentInstruction(
-                senderAddress,
+                senderSigner,
                 senderAddress,
                 configState.quoteMint,
                 tokenQuoteProgram
@@ -397,7 +405,7 @@ export class DynamicBondingCurveKitCreatorService {
 
         if (configState.quoteMint === NATIVE_MINT_ADDRESS) {
             const unwrapIx = await unwrapSolInstruction(
-                senderAddress,
+                senderSigner,
                 senderAddress
             )
             postInstructions.push(unwrapIx)
