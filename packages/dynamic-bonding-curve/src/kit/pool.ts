@@ -27,6 +27,7 @@ import { findMintMetadataPda, findPoolPda, findTokenVaultPda } from './pda'
 import { DynamicBondingCurveKitStateService } from './state'
 import {
     getTokenProgramAddress,
+    getTokenTypeForMint,
     NATIVE_MINT_ADDRESS,
     createAssociatedTokenAccountIdempotentInstruction,
     wrapSolInstructions,
@@ -604,8 +605,7 @@ export class DynamicBondingCurveKitPoolService {
         const config = toAddress(params.config)
         const quoteMint = toAddress(params.quoteMint)
         const tokenType = params.tokenType
-        const quoteTokenFlag =
-            tokenType === TokenType.SPL ? TokenType.SPL : TokenType.Token2022
+        const quoteTokenFlag = await getTokenTypeForMint(this.rpc, quoteMint)
 
         const baseFee = params.poolFees.baseFee
 
@@ -715,6 +715,7 @@ export class DynamicBondingCurveKitPoolService {
             needsRemainingAccounts,
         } = opts
 
+        const buyerSigner = toSigner(buyerParam.buyer)
         const buyerAddress = toAddress(buyerParam.buyer)
         const receiverAddress = buyerParam.receiver
             ? toAddress(buyerParam.receiver)
@@ -740,7 +741,7 @@ export class DynamicBondingCurveKitPoolService {
         // Create input ATA for buyer
         const { ata: inputTokenAccount, instruction: createInputAtaIx } =
             await createAssociatedTokenAccountIdempotentInstruction(
-                buyerAddress,
+                buyerSigner,
                 buyerAddress,
                 inputMint,
                 inputTokenProgram
@@ -750,7 +751,7 @@ export class DynamicBondingCurveKitPoolService {
         // Create output ATA for receiver
         const { ata: outputTokenAccount, instruction: createOutputAtaIx } =
             await createAssociatedTokenAccountIdempotentInstruction(
-                buyerAddress,
+                buyerSigner,
                 receiverAddress,
                 outputMint,
                 outputTokenProgram
@@ -761,7 +762,7 @@ export class DynamicBondingCurveKitPoolService {
         if (inputMint === NATIVE_MINT_ADDRESS) {
             preInstructions.push(
                 ...wrapSolInstructions(
-                    buyerAddress,
+                    buyerSigner,
                     inputTokenAccount,
                     BigInt(buyerParam.buyAmount.toString())
                 )
@@ -773,11 +774,9 @@ export class DynamicBondingCurveKitPoolService {
             outputMint === NATIVE_MINT_ADDRESS
         ) {
             postInstructions.push(
-                await unwrapSolInstruction(buyerAddress, buyerAddress)
+                await unwrapSolInstruction(buyerSigner, buyerAddress)
             )
         }
-
-        const buyerSigner = toSigner(buyerParam.buyer)
 
         const swapIx = await getSwapInstructionAsync({
             config,

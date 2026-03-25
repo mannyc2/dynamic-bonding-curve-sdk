@@ -9,6 +9,7 @@ import {
     collectKitTransactionSigners,
     convertBNFields,
     toAddress,
+    toAddressOrSigner,
     toOptionalAddress,
     toSigner,
 } from './helpers'
@@ -118,7 +119,7 @@ export class DynamicBondingCurveKitPartnerService {
 
         const poolAddress = toAddress(pool)
         const feeClaimerSigner = toSigner(feeClaimer)
-        const payerAddress = toAddress(payer)
+        const payerInput = toAddressOrSigner(payer)
         const feeClaimerAddress = feeClaimerSigner.address
 
         const poolAccount = await this.state.getPool(poolAddress)
@@ -144,10 +145,11 @@ export class DynamicBondingCurveKitPartnerService {
         let tokenQuoteAccount: Address
 
         if (isSOLQuoteMint) {
-            const tempWSolAddress =
+            const tempWSolOwner =
                 receiverAddress && receiverAddress !== feeClaimerAddress
-                    ? toAddress(tempWSolAcc!)
-                    : feeClaimerAddress
+                    ? toAddressOrSigner(tempWSolAcc!)
+                    : feeClaimerSigner
+            const tempWSolAddress = toAddress(tempWSolOwner)
 
             ;[tokenBaseAccount] = await findAssociatedTokenPda({
                 owner: feeReceiver,
@@ -162,7 +164,7 @@ export class DynamicBondingCurveKitPartnerService {
 
             const createBaseAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     feeReceiver,
                     poolState.baseMint,
                     tokenBaseProgram
@@ -171,7 +173,7 @@ export class DynamicBondingCurveKitPartnerService {
 
             const createQuoteAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     tempWSolAddress,
                     configState.quoteMint,
                     tokenQuoteProgram
@@ -179,18 +181,18 @@ export class DynamicBondingCurveKitPartnerService {
             preInstructions.push(createQuoteAta.instruction)
 
             postInstructions.push(
-                await unwrapSolInstruction(tempWSolAddress, feeReceiver)
+                await unwrapSolInstruction(tempWSolOwner, feeReceiver)
             )
         } else {
             const [baseResult, quoteResult] = await Promise.all([
                 createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     feeReceiver,
                     poolState.baseMint,
                     tokenBaseProgram
                 ),
                 createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     feeReceiver,
                     configState.quoteMint,
                     tokenQuoteProgram
@@ -246,7 +248,7 @@ export class DynamicBondingCurveKitPartnerService {
 
         const poolAddress = toAddress(pool)
         const feeClaimerSigner = toSigner(feeClaimer)
-        const payerAddress = toAddress(payer)
+        const payerInput = toAddressOrSigner(payer)
         const feeClaimerAddress = feeClaimerSigner.address
         const receiverAddress = toAddress(receiver)
 
@@ -283,7 +285,7 @@ export class DynamicBondingCurveKitPartnerService {
 
             const createBaseAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     receiverAddress,
                     poolState.baseMint,
                     tokenBaseProgram
@@ -292,7 +294,7 @@ export class DynamicBondingCurveKitPartnerService {
 
             const createQuoteAta =
                 await createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     feeClaimerAddress,
                     configState.quoteMint,
                     tokenQuoteProgram
@@ -300,18 +302,18 @@ export class DynamicBondingCurveKitPartnerService {
             preInstructions.push(createQuoteAta.instruction)
 
             postInstructions.push(
-                await unwrapSolInstruction(feeClaimerAddress, receiverAddress)
+                await unwrapSolInstruction(feeClaimerSigner, receiverAddress)
             )
         } else {
             const [baseResult, quoteResult] = await Promise.all([
                 createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     receiverAddress,
                     poolState.baseMint,
                     tokenBaseProgram
                 ),
                 createAssociatedTokenAccountIdempotentInstruction(
-                    payerAddress,
+                    payerInput,
                     receiverAddress,
                     configState.quoteMint,
                     tokenQuoteProgram
@@ -376,7 +378,7 @@ export class DynamicBondingCurveKitPartnerService {
 
         const quoteAtaResult =
             await createAssociatedTokenAccountIdempotentInstruction(
-                feeClaimerAddress,
+                feeClaimerSigner,
                 feeClaimerAddress,
                 configState.quoteMint,
                 tokenQuoteProgram
@@ -385,7 +387,7 @@ export class DynamicBondingCurveKitPartnerService {
 
         if (configState.quoteMint === NATIVE_MINT_ADDRESS) {
             postInstructions.push(
-                await unwrapSolInstruction(feeClaimerAddress, feeClaimerAddress)
+                await unwrapSolInstruction(feeClaimerSigner, feeClaimerAddress)
             )
         }
 
@@ -430,7 +432,7 @@ export class DynamicBondingCurveKitPartnerService {
 
         const quoteAtaResult =
             await createAssociatedTokenAccountIdempotentInstruction(
-                senderAddress,
+                senderSigner,
                 senderAddress,
                 configState.quoteMint,
                 tokenQuoteProgram
@@ -439,7 +441,7 @@ export class DynamicBondingCurveKitPartnerService {
 
         if (configState.quoteMint === NATIVE_MINT_ADDRESS) {
             postInstructions.push(
-                await unwrapSolInstruction(senderAddress, senderAddress)
+                await unwrapSolInstruction(senderSigner, senderAddress)
             )
         }
 

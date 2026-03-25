@@ -182,7 +182,7 @@ export class DynamicBondingCurveKitMigrationService {
 
         const { instruction: createEscrowTokenIx } =
             await createAssociatedTokenAccountIdempotentInstruction(
-                payer.address,
+                payer,
                 escrow,
                 poolState.data.baseMint,
                 tokenProgram
@@ -224,7 +224,7 @@ export class DynamicBondingCurveKitMigrationService {
 
         const { ata: tokenBaseAccount, instruction: createBaseTokenAccountIx } =
             await createAssociatedTokenAccountIdempotentInstruction(
-                payer.address,
+                payer,
                 configState.data.leftoverReceiver,
                 poolState.data.baseMint,
                 tokenBaseProgram
@@ -569,7 +569,7 @@ export class DynamicBondingCurveKitMigrationService {
 
         const { instruction: createDestinationTokenIx } =
             await createAssociatedTokenAccountIdempotentInstruction(
-                payer.address,
+                payer,
                 owner,
                 lpMint,
                 TOKEN_PROGRAM_ADDRESS

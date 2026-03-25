@@ -20,7 +20,10 @@ import {
 } from '@solana/kit'
 import { Connection, PublicKey, Transaction } from '@solana/web3.js'
 import { expect } from 'vitest'
-import { createKitSignerFromLegacyKeypair } from '../../src/kit/helpers'
+import {
+    createKitSignerFromLegacyKeypair,
+    isKitTransactionSigner,
+} from '../../src/kit/helpers'
 import type { KitTransactionPlan } from '../../src'
 import { LOCALNET_RPC_URL } from './common'
 
@@ -39,6 +42,8 @@ export async function executeKitPlan(
     plan: KitTransactionPlan,
     feePayer: TransactionSigner
 ): Promise<void> {
+    expectKitPlanToReuseSignerInstances(plan)
+
     const { value: latestBlockhash } = await rpc.getLatestBlockhash().send()
     const message = pipe(
         createTransactionMessage({ version: 0 }),
@@ -130,6 +135,41 @@ export async function expectKitPlanToMatchLegacyTransaction(
     expect(plan.signers.map((signer) => signer.address).sort()).toEqual(
         expectedSigners.map((signer) => signer.address).sort()
     )
+    expectKitPlanToReuseSignerInstances(plan)
 
     await expectKitPlanToCompile(connection, plan, feePayer)
+}
+
+export function expectKitPlanToReuseSignerInstances(
+    plan: KitTransactionPlan
+): void {
+    const signerByAddress = new Map<string, TransactionSigner>()
+    const duplicateAddresses = new Set<string>()
+
+    const recordSigner = (signer: TransactionSigner): void => {
+        const existingSigner = signerByAddress.get(signer.address)
+        if (existingSigner && existingSigner !== signer) {
+            duplicateAddresses.add(signer.address)
+            return
+        }
+
+        signerByAddress.set(signer.address, signer)
+    }
+
+    for (const signer of plan.signers) {
+        recordSigner(signer)
+    }
+
+    for (const instruction of plan.instructions) {
+        for (const account of instruction.accounts ?? []) {
+            if (isKitTransactionSigner(account.address)) {
+                recordSigner(account.address)
+            }
+        }
+    }
+
+    expect(
+        [...duplicateAddresses],
+        'Each signer address in a Kit plan should reuse the same TransactionSigner instance'
+    ).toEqual([])
 }
