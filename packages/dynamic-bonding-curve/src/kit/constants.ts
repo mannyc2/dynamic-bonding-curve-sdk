@@ -1,0 +1,52 @@
+import type { Address } from '@solana/kit'
+
+export const DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS =
+    'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN' as Address<'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'>
+
+export const METAPLEX_PROGRAM_ADDRESS =
+    'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s' as Address<'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'>
+
+export const DAMM_V1_PROGRAM_ADDRESS =
+    'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB' as Address<'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB'>
+
+export const DAMM_V2_PROGRAM_ADDRESS =
+    'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG' as Address<'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG'>
+
+export const LOCKER_PROGRAM_ADDRESS =
+    'LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn' as Address<'LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn'>
+
+export const VAULT_PROGRAM_ADDRESS =
+    '24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi' as Address<'24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi'>
+
+export const BASE_ADDRESS =
+    'HWzXGcGHy4tcpYfaRDCyLNzXqBTv3E6BttpCH2vJxArv' as Address<'HWzXGcGHy4tcpYfaRDCyLNzXqBTv3E6BttpCH2vJxArv'>
+
+export const POOL_AUTHORITY_ADDRESS =
+    'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM' as Address<'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'>
+
+export const TOKEN_PROGRAM_ADDRESS =
+    'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>
+
+export const TOKEN_2022_PROGRAM_ADDRESS =
+    'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' as Address<'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'>
+
+export const ASSOCIATED_TOKEN_PROGRAM_ADDRESS =
+    'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>
+
+export const SYSTEM_PROGRAM_ADDRESS =
+    '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
+
+export const SYSVAR_RENT_ADDRESS =
+    'SysvarRent111111111111111111111111111111111' as Address<'SysvarRent111111111111111111111111111111111'>
+
+export const SYSVAR_INSTRUCTIONS_ADDRESS =
+    'Sysvar1nstructions1111111111111111111111111' as Address<'Sysvar1nstructions1111111111111111111111111'>
+
+export const COMPUTE_BUDGET_PROGRAM_ADDRESS =
+    'ComputeBudget111111111111111111111111111111' as Address<'ComputeBudget111111111111111111111111111111'>
+
+export const NATIVE_MINT_ADDRESS =
+    'So11111111111111111111111111111111111111112' as Address<'So11111111111111111111111111111111111111112'>
+
+export const Q128 = 2n ** 128n
+export const LAMPORTS_PER_SOL = 1_000_000_000n

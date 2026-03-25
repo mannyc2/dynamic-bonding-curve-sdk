@@ -1,25 +1,26 @@
 import type { Address, Instruction, Rpc, SolanaRpcApi } from '@solana/kit'
-import { TokenType } from '../types'
+import { TokenType } from '../../types'
 import { getCreateVirtualPoolMetadataInstructionAsync } from '../generated/instructions/createVirtualPoolMetadata'
 import { getClaimCreatorTradingFeeInstructionAsync } from '../generated/instructions/claimCreatorTradingFee'
 import { getCreatorWithdrawSurplusInstructionAsync } from '../generated/instructions/creatorWithdrawSurplus'
 import { getTransferPoolCreatorInstructionAsync } from '../generated/instructions/transferPoolCreator'
 import { getWithdrawMigrationFeeInstructionAsync } from '../generated/instructions/withdrawMigrationFee'
-import { DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS } from '../generated/programs'
 import { findMigrationMetadataPda } from '../generated/pdas'
-import { DynamicBondingCurveKitStateService } from './state'
 import {
+    DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+    TOKEN_PROGRAM_ADDRESS,
+} from '../constants'
+import {
+    collectKitTransactionSigners,
     createAssociatedTokenAccountIdempotentInstruction,
     getTokenProgramAddress,
     NATIVE_MINT_ADDRESS,
-    unwrapSolInstruction,
-} from './token'
-import {
-    collectKitTransactionSigners,
     toAddress,
     toAddressOrSigner,
     toSigner,
-} from './helpers'
+    unwrapSolInstruction,
+} from '../helpers'
+import { DynamicBondingCurveKitStateService } from './state'
 import type {
     KitClaimCreatorTradingFee2Params,
     KitClaimCreatorTradingFeeParams,
@@ -28,7 +29,7 @@ import type {
     KitTransactionPlan,
     KitTransferPoolCreatorParams,
     KitWithdrawMigrationFeeParams,
-} from './types'
+} from '../types'
 
 export class DynamicBondingCurveKitCreatorService {
     private readonly state: DynamicBondingCurveKitStateService
@@ -292,9 +293,6 @@ export class DynamicBondingCurveKitCreatorService {
 
         const configAccount = await this.state.getPoolConfig(poolState.config)
         const configState = configAccount.data
-
-        const TOKEN_PROGRAM_ADDRESS =
-            'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address
 
         const preInstructions: Instruction[] = []
         const postInstructions: Instruction[] = []

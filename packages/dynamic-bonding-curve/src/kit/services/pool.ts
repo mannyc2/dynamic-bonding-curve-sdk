@@ -1,5 +1,13 @@
 import type { Address, Instruction, Rpc, SolanaRpcApi } from '@solana/kit'
 import BN from 'bn.js'
+import { isRateLimiterApplied } from '../../math'
+import {
+    ActivationType,
+    BaseFeeMode,
+    SwapMode,
+    TokenType,
+    TradeDirection,
+} from '../../types'
 import {
     getCreateConfigInstructionAsync,
     type CreateConfigInstructionDataArgs,
@@ -8,31 +16,27 @@ import { getInitializeVirtualPoolWithSplTokenInstructionAsync } from '../generat
 import { getInitializeVirtualPoolWithToken2022InstructionAsync } from '../generated/instructions/initializeVirtualPoolWithToken2022'
 import { getSwapInstructionAsync } from '../generated/instructions/swap'
 import { getSwap2InstructionAsync } from '../generated/instructions/swap2'
-import { DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS } from '../generated/programs'
-import { isRateLimiterApplied } from '../math'
 import {
-    ActivationType,
-    BaseFeeMode,
-    SwapMode,
-    TokenType,
-    TradeDirection,
-} from '../types'
+    DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+    SYSVAR_INSTRUCTIONS_ADDRESS,
+    TOKEN_PROGRAM_ADDRESS,
+} from '../constants'
 import {
     collectKitTransactionSigners,
-    toAddress,
-    toOptionalAddress,
-    toSigner,
-} from './helpers'
-import { findMintMetadataPda, findPoolPda, findTokenVaultPda } from './pda'
-import { DynamicBondingCurveKitStateService } from './state'
-import {
+    createAssociatedTokenAccountIdempotentInstruction,
+    findMintMetadataPda,
+    findPoolPda,
+    findTokenVaultPda,
     getTokenProgramAddress,
     getTokenTypeForMint,
     NATIVE_MINT_ADDRESS,
-    createAssociatedTokenAccountIdempotentInstruction,
-    wrapSolInstructions,
+    toAddress,
+    toOptionalAddress,
+    toSigner,
     unwrapSolInstruction,
-} from './token'
+    wrapSolInstructions,
+} from '../helpers'
+import { DynamicBondingCurveKitStateService } from './state'
 import type {
     CreateConfigAndPoolWithFirstBuyKitResult,
     KitCreateConfigAndPoolParams,
@@ -44,13 +48,7 @@ import type {
     KitSwap2Params,
     KitSwapParams,
     KitTransactionPlan,
-} from './types'
-
-const TOKEN_PROGRAM_ADDRESS =
-    'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>
-
-const SYSVAR_INSTRUCTIONS_ADDRESS =
-    'Sysvar1nstructions1111111111111111111111111' as Address<'Sysvar1nstructions1111111111111111111111111'>
+} from '../types'
 
 export class DynamicBondingCurveKitPoolService {
     private readonly state: DynamicBondingCurveKitStateService

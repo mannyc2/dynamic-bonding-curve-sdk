@@ -1,9 +1,11 @@
 import { createSolanaRpc, type Rpc, type SolanaRpcApi } from '@solana/kit'
-import { DynamicBondingCurveKitCreatorService } from './creator'
-import { DynamicBondingCurveKitMigrationService } from './migration'
-import { DynamicBondingCurveKitPartnerService } from './partner'
-import { DynamicBondingCurveKitPoolService } from './pool'
-import { DynamicBondingCurveKitStateService } from './state'
+import {
+    DynamicBondingCurveKitCreatorService,
+    DynamicBondingCurveKitMigrationService,
+    DynamicBondingCurveKitPartnerService,
+    DynamicBondingCurveKitPoolService,
+    DynamicBondingCurveKitStateService,
+} from './services'
 import type {
     DynamicBondingCurveKitCreatorClient,
     DynamicBondingCurveKitMigrationClient,

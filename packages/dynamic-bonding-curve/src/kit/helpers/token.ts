@@ -13,18 +13,20 @@ import {
     getCloseAccountInstruction,
     getCreateAssociatedTokenIdempotentInstruction,
     getSyncNativeInstruction,
-    TOKEN_PROGRAM_ADDRESS,
 } from '@solana-program/token'
-import { TokenType } from '../types'
+import {
+    NATIVE_MINT_ADDRESS,
+    TOKEN_2022_PROGRAM_ADDRESS,
+    TOKEN_PROGRAM_ADDRESS,
+} from '../constants'
+import { TokenType } from '../../types'
 
-export { TOKEN_PROGRAM_ADDRESS }
-export { ASSOCIATED_TOKEN_PROGRAM_ADDRESS } from '@solana-program/token'
-
-const TOKEN_2022_PROGRAM_ADDRESS =
-    'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' as Address<'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'>
-
-export const NATIVE_MINT_ADDRESS =
-    'So11111111111111111111111111111111111111112' as Address<'So11111111111111111111111111111111111111112'>
+export {
+    ASSOCIATED_TOKEN_PROGRAM_ADDRESS,
+    NATIVE_MINT_ADDRESS,
+    TOKEN_2022_PROGRAM_ADDRESS,
+    TOKEN_PROGRAM_ADDRESS,
+} from '../constants'
 
 export function getTokenProgramAddress(tokenType: TokenType): Address {
     return tokenType === TokenType.SPL
