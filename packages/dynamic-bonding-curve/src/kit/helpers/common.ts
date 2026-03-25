@@ -7,7 +7,7 @@ import {
     type TransactionSigner,
 } from '@solana/kit'
 import { Keypair } from '@solana/web3.js'
-import type { KitAddressOrSignerInput } from './types'
+import type { KitAddressOrSignerInput } from '../types'
 
 export function collectKitTransactionSigners(
     ...values: readonly unknown[]

@@ -34,7 +34,7 @@ for (const type of idl.types ?? []) {
 const root = rootNodeFromAnchor(idl)
 const codama = createFromRoot(root)
 
-const outputDir = join(packageRoot, 'src/generated')
+const outputDir = join(packageRoot, 'src/kit/generated')
 
 await codama.accept(
     renderVisitor(outputDir, {

@@ -6,6 +6,7 @@ import {
     fetchEncodedAccount,
     generateKeyPairSigner,
 } from '@solana/kit'
+import { TokenType } from '../../types'
 import { findAssociatedTokenPda } from '@solana-program/token'
 import { getCreateLockerInstructionAsync } from '../generated/instructions/createLocker'
 import { getWithdrawLeftoverInstructionAsync } from '../generated/instructions/withdrawLeftover'
@@ -14,8 +15,22 @@ import { getMigrateMeteoraDammInstruction } from '../generated/instructions/migr
 import { getMigrateMeteoraDammLockLpTokenInstructionAsync } from '../generated/instructions/migrateMeteoraDammLockLpToken'
 import { getMigrateMeteoraDammClaimLpTokenInstructionAsync } from '../generated/instructions/migrateMeteoraDammClaimLpToken'
 import { getMigrationDammV2Instruction } from '../generated/instructions/migrationDammV2'
-import { DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS } from '../generated/programs'
 import {
+    ASSOCIATED_TOKEN_PROGRAM_ADDRESS,
+    COMPUTE_BUDGET_PROGRAM_ADDRESS,
+    DAMM_V1_PROGRAM_ADDRESS,
+    DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+    METAPLEX_PROGRAM_ADDRESS,
+    POOL_AUTHORITY_ADDRESS,
+    SYSTEM_PROGRAM_ADDRESS,
+    SYSVAR_RENT_ADDRESS,
+    TOKEN_2022_PROGRAM_ADDRESS,
+    TOKEN_PROGRAM_ADDRESS,
+    VAULT_PROGRAM_ADDRESS,
+} from '../constants'
+import {
+    collectKitTransactionSigners,
+    createAssociatedTokenAccountIdempotentInstruction,
     findDammV1LockEscrowPda,
     findDammV1LpMintPda,
     findDammV1PoolPda,
@@ -32,14 +47,11 @@ import {
     findLockerEventAuthorityPda,
     findMintMetadataPda,
     findVaultPdas,
-} from './pda'
-import {
-    createAssociatedTokenAccountIdempotentInstruction,
     getTokenProgramAddress,
-} from './token'
-import { collectKitTransactionSigners, toAddress, toSigner } from './helpers'
-import { DynamicBondingCurveKitStateService } from './state'
-import type {
+    toAddress,
+    toSigner,
+} from '../helpers'
+import {
     KitCreateDammV1MigrationMetadataParams,
     KitCreateLockerParams,
     KitDammLpTokenParams,
@@ -47,32 +59,8 @@ import type {
     KitMigrateToDammV2Params,
     KitTransactionPlan,
     KitWithdrawLeftoverParams,
-} from './types'
-import { TokenType } from '../types'
-
-const POOL_AUTHORITY_ADDRESS =
-    'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM' as Address<'FhVo3mqL8PW5pH5U2CN4XE33DokiyZnUwuGpH2hmHLuM'>
-
-const TOKEN_PROGRAM_ADDRESS =
-    'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA' as Address<'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'>
-
-const TOKEN_2022_PROGRAM_ADDRESS =
-    'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb' as Address<'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb'>
-
-const ASSOCIATED_TOKEN_PROGRAM_ADDRESS =
-    'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL' as Address<'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL'>
-
-const METAPLEX_PROGRAM_ADDRESS =
-    'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s' as Address<'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'>
-
-const VAULT_PROGRAM_ADDRESS =
-    '24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi' as Address<'24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi'>
-
-const SYSTEM_PROGRAM_ADDRESS =
-    '11111111111111111111111111111111' as Address<'11111111111111111111111111111111'>
-
-const SYSVAR_RENT_ADDRESS =
-    'SysvarRent111111111111111111111111111111111' as Address<'SysvarRent111111111111111111111111111111111'>
+} from '../types'
+import { DynamicBondingCurveKitStateService } from './state'
 
 // Vault program "initialize" discriminator: [175, 175, 109, 31, 13, 152, 155, 237]
 const VAULT_INITIALIZE_DISCRIMINATOR = new Uint8Array([
@@ -105,9 +93,6 @@ function buildVaultInitInstruction(
         data: VAULT_INITIALIZE_DISCRIMINATOR,
     }
 }
-
-const DAMM_V1_PROGRAM_ADDRESS =
-    'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB' as Address<'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB'>
 
 // DAMM V1 "create_lock_escrow" discriminator: [54, 87, 165, 19, 69, 227, 218, 224]
 const CREATE_LOCK_ESCROW_DISCRIMINATOR = new Uint8Array([
@@ -711,9 +696,6 @@ export class DynamicBondingCurveKitMigrationService {
  * Build a SetComputeUnitLimit instruction (ComputeBudget program, index 2).
  */
 function buildSetComputeUnitLimitInstruction(units: number): Instruction {
-    const COMPUTE_BUDGET_PROGRAM_ADDRESS =
-        'ComputeBudget111111111111111111111111111111' as Address<'ComputeBudget111111111111111111111111111111'>
-
     const data = new Uint8Array(5)
     const view = new DataView(data.buffer)
     view.setUint8(0, 2) // SetComputeUnitLimit instruction index

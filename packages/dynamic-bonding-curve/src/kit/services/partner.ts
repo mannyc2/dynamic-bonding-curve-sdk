@@ -7,26 +7,24 @@ import {
 } from '@solana/kit'
 import {
     collectKitTransactionSigners,
+    createAssociatedTokenAccountIdempotentInstruction,
     convertBNFields,
+    getTokenProgramAddress,
+    NATIVE_MINT_ADDRESS,
     toAddress,
     toAddressOrSigner,
     toOptionalAddress,
     toSigner,
-} from './helpers'
+    unwrapSolInstruction,
+} from '../helpers'
+import { DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS } from '../constants'
 import { DynamicBondingCurveKitStateService } from './state'
-import { DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS } from '../generated/programs'
 import { getCreateConfigInstructionAsync } from '../generated/instructions/createConfig'
 import { getCreatePartnerMetadataInstructionAsync } from '../generated/instructions/createPartnerMetadata'
 import { getClaimTradingFeeInstructionAsync } from '../generated/instructions/claimTradingFee'
 import { getPartnerWithdrawSurplusInstructionAsync } from '../generated/instructions/partnerWithdrawSurplus'
 import { getWithdrawMigrationFeeInstructionAsync } from '../generated/instructions/withdrawMigrationFee'
 import { getClaimPartnerPoolCreationFeeInstructionAsync } from '../generated/instructions/claimPartnerPoolCreationFee'
-import {
-    createAssociatedTokenAccountIdempotentInstruction,
-    getTokenProgramAddress,
-    NATIVE_MINT_ADDRESS,
-    unwrapSolInstruction,
-} from './token'
 import { findAssociatedTokenPda } from '@solana-program/token'
 import type {
     KitClaimPartnerPoolCreationFeeParams,
@@ -37,7 +35,7 @@ import type {
     KitPartnerWithdrawSurplusParams,
     KitTransactionPlan,
     KitWithdrawMigrationFeeParams,
-} from './types'
+} from '../types'
 
 export class DynamicBondingCurveKitPartnerService {
     private readonly state: DynamicBondingCurveKitStateService

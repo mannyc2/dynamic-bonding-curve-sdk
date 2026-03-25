@@ -3,27 +3,15 @@ import {
     getProgramDerivedAddress,
     type Address,
 } from '@solana/kit'
-
-const DBC_PROGRAM_ADDRESS =
-    'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN' as Address<'dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN'>
-
-const METAPLEX_PROGRAM_ADDRESS =
-    'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s' as Address<'metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s'>
-
-const DAMM_V1_PROGRAM_ADDRESS =
-    'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB' as Address<'Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB'>
-
-const DAMM_V2_PROGRAM_ADDRESS =
-    'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG' as Address<'cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG'>
-
-const LOCKER_PROGRAM_ADDRESS =
-    'LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn' as Address<'LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn'>
-
-const VAULT_PROGRAM_ADDRESS =
-    '24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi' as Address<'24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi'>
-
-const BASE_ADDRESS =
-    'HWzXGcGHy4tcpYfaRDCyLNzXqBTv3E6BttpCH2vJxArv' as Address<'HWzXGcGHy4tcpYfaRDCyLNzXqBTv3E6BttpCH2vJxArv'>
+import {
+    BASE_ADDRESS,
+    DAMM_V1_PROGRAM_ADDRESS,
+    DAMM_V2_PROGRAM_ADDRESS,
+    DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
+    LOCKER_PROGRAM_ADDRESS,
+    METAPLEX_PROGRAM_ADDRESS,
+    VAULT_PROGRAM_ADDRESS,
+} from '../constants'
 
 const addressEncoder = getAddressEncoder()
 
@@ -54,7 +42,7 @@ export async function findPoolPda(
     const secondMint = isQuoteBigger ? baseMint : quoteMint
 
     const [pda] = await getProgramDerivedAddress({
-        programAddress: DBC_PROGRAM_ADDRESS,
+        programAddress: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
         seeds: [
             'pool',
             addressEncoder.encode(config),
@@ -70,7 +58,7 @@ export async function findTokenVaultPda(
     mint: Address
 ): Promise<Address> {
     const [pda] = await getProgramDerivedAddress({
-        programAddress: DBC_PROGRAM_ADDRESS,
+        programAddress: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
         seeds: [
             'token_vault',
             addressEncoder.encode(mint),
@@ -264,7 +252,7 @@ export async function findDammV2MigrationMetadataPda(
     virtualPool: Address
 ): Promise<Address> {
     const [pda] = await getProgramDerivedAddress({
-        programAddress: DBC_PROGRAM_ADDRESS,
+        programAddress: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
         seeds: ['damm_v2', addressEncoder.encode(virtualPool)],
     })
     return pda
@@ -276,7 +264,7 @@ export async function findBaseKeyForLockerPda(
     virtualPool: Address
 ): Promise<Address> {
     const [pda] = await getProgramDerivedAddress({
-        programAddress: DBC_PROGRAM_ADDRESS,
+        programAddress: DYNAMIC_BONDING_CURVE_PROGRAM_ADDRESS,
         seeds: ['base_locker', addressEncoder.encode(virtualPool)],
     })
     return pda

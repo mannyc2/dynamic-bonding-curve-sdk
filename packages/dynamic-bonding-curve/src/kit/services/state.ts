@@ -8,11 +8,9 @@ import {
     type PoolConfig,
 } from '../generated/accounts'
 import type { Account, MaybeAccount } from '@solana/kit'
+import { LAMPORTS_PER_SOL, Q128 } from '../constants'
 
 type KitRpc = Rpc<SolanaRpcApi>
-
-const Q128 = 2n ** 128n
-const LAMPORTS_PER_SOL = 1_000_000_000n
 
 export interface KitPoolState {
     /** Current token price in SOL */
