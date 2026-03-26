@@ -1,26 +1,85 @@
 {
-  "name": "ts-sdk",
-  "devDependencies": {
-    "prettier": "^3.5.3",
-    "tsup": "^8.4.0",
-    "typescript": "5.8.2"
-  },
-  "engines": {
-    "node": ">=18"
-  },
+  "name": "@meteora-ag/dynamic-bonding-curve-sdk",
+  "version": "1.5.7",
   "packageManager": "pnpm@10.28.2",
-  "private": true,
-  "scripts": {
-    "build": "pnpm -r run build",
-    "dev": "pnpm -r run dev",
-    "lint": "pnpm -r run lint",
-    "link": "pnpm -r run link",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "format:check": "prettier --check \"**/*.{ts,tsx,md}\"",
-    "check-types": "pnpm -r run check-types",
-    "test": "pnpm -r run test"
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "source": "src/index.ts",
+  "types": "dist/index.d.ts",
+  "author": "Dann Wee <dann@raccoons.dev>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mannyc2/dynamic-bonding-curve-sdk.git"
   },
-  "workspaces": [
-    "packages/*"
-  ]
+  "keywords": [
+    "meteora-ag",
+    "dynamic-bonding-curve",
+    "damm-v1",
+    "damm-v2",
+    "dynamic-vaults"
+  ],
+  "files": [
+    "dist"
+  ],
+  "description": "A Typescript SDK for interacting with the Dynamic Bonding Curve on Meteora.",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "build": "rm -rf dist .smoke && tsup --config tsup.config.ts src/index.ts && tsup --config tsup.config.ts src/kit/index.ts --out-dir dist/kit --clean false && node scripts/verify-kit-entrypoint.mjs && tsc -p tests/smoke/tsconfig.json",
+    "clean": "rm -rf node_modules dist .smoke",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint .",
+    "generate:client": "tsx scripts/generate-kit-client.ts",
+    "verify:kit-entrypoint": "node scripts/verify-kit-entrypoint.mjs",
+    "smoke:kit-entrypoint": "tsc -p tests/smoke/tsconfig.json",
+    "start-validator": "solana-test-validator --reset --bpf-program dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN tests/fixtures/dynamic_bonding_curve.so --bpf-program cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG tests/fixtures/cp_amm.so --bpf-program Eo7WjKq67rjJQSZxS6z3YkapzY3eMj6Xy8X5EQVn5UaB tests/fixtures/amm.so --bpf-program LocpQgucEQHbqNABEYvBvwoxCPsSbG91A1QaQhQQqjn tests/fixtures/locker.so --bpf-program metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s tests/fixtures/metaplex.so --bpf-program 24Uqj9JCLxUeoC3hGfh5W3s9FM9uCHDS2SG3LYwBpyTi tests/fixtures/vault.so"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./kit": {
+      "types": "./dist/kit/index.d.ts",
+      "import": "./dist/kit/index.js",
+      "require": "./dist/kit/index.cjs"
+    }
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.23.0",
+    "@codama/nodes-from-anchor": "^1.4.0",
+    "@codama/renderers-js": "^2.1.0",
+    "@codama/visitors": "^1.5.1",
+    "@types/bn.js": "^5.1.6",
+    "@types/node": "^25.0.3",
+    "codama": "^1.5.1",
+    "eslint": "^9.24.0",
+    "eslint-config-prettier": "^10.1.1",
+    "eslint-plugin-only-warn": "^1.1.0",
+    "globals": "^16.0.0",
+    "jito-ts": "^4.2.1",
+    "tsup": "^8.4.0",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2",
+    "typescript-eslint": "^8.29.0",
+    "vitest": "^2.1.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "dependencies": {
+    "@coral-xyz/anchor": "^0.31.0",
+    "@solana-program/system": "0.12.0",
+    "@solana-program/token": "0.12.0",
+    "@solana/compat": "^6.3.1",
+    "@solana/kit": "^6.3.1",
+    "@solana/program-client-core": "^6.5.0",
+    "@solana/spl-token": "^0.4.13",
+    "@solana/web3.js": "^1.98.0",
+    "bn.js": "^5.2.1",
+    "decimal.js": "^10.5.0"
+  }
 }

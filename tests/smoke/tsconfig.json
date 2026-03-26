@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "outDir": "../../.smoke/kit-entrypoint",
+    "rootDir": ".",
+    "target": "es2020",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "types": ["node"]
+  },
+  "include": ["./kit-entrypoint.ts"]
+}
